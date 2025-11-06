@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Oak Tree Growth</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 50%, #90EE90 100%);
+      font-family: Arial, sans-serif;
+    }
+
+    #canvas {
+      display: block;
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    #info {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.9);
+      padding: 15px 30px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      font-size: 18px;
+      color: #333;
+      font-weight: bold;
+    }
+
+    #stage {
+      color: #2E8B57;
+      font-size: 16px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="info">
+    <div>🌰 Tap to grow your oak tree! 🌳</div>
+    <div id="stage">Stage: Acorn Seed</div>
+  </div>
+
+  <script>
+    /**
+     * Interactive Oak Tree Growth Visualization
+     * Features growth stages from acorn to full oak tree with seasonal changes
+     */
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const stageDisplay = document.getElementById("stage");
+
+    // Set canvas to full window size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Tree growth state
+    let tapCount = 0;
+    let leaves = [];
+    let fallingLeaves = [];
+
+    // Growth stages configuration
+    const STAGES = {
+      ACORN: { min: 0, max: 5, name: "Acorn Seed" },
+      SPROUT: { min: 6, max: 15, name: "Sprouting" },
+      SAPLING: { min: 16, max: 30, name: "Young Sapling" },
+      SMALL_TREE: { min: 31, max: 50, name: "Growing Tree" },
+      MATURE_TREE: { min: 51, max: 80, name: "Mature Oak" },
+      FULL_TREE: { min: 81, max: 110, name: "Full Oak Tree" },
+      AUTUMN: { min: 111, max: 140, name: "Autumn Colors" },
+      FALLING: { min: 141, max: 200, name: "Falling Leaves" }
+    };
+
+    /**
+     * Leaf object for tracking individual leaves
+     */
+    class Leaf {
+      constructor(x, y, size, color, angle = 0) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.color = color;
+        this.angle = angle;
+        this.rotation = 0;
+        this.fallSpeed = Math.random() * 2 + 1;
+        this.swaySpeed = Math.random() * 0.05 + 0.02;
+        this.swayOffset = Math.random() * Math.PI * 2;
+      }
+
+      /**
+       * Update leaf position during fall animation
+       */
+      fall() {
+        this.y += this.fallSpeed;
+        this.x += Math.sin(this.y * this.swaySpeed + this.swayOffset) * 2;
+        this.rotation += 0.05;
+        return this.y < canvas.height + 50;
+      }
+
+      /**
+       * Draw the leaf
+       */
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation + this.angle);
+        ctx.fillStyle = this.color;
+        
+        // Draw leaf shape
+        ctx.beginPath();
+        ctx.ellipse(0, 0, this.size, this.size * 1.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add leaf vein
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, -this.size * 1.5);
+        ctx.lineTo(0, this.size * 1.5);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+    }
+
+    /**
+     * Get current growth stage based on tap count
+     */
+    function getCurrentStage() {
+      for (const stage of Object.values(STAGES)) {
+        if (tapCount >= stage.min && tapCount <= stage.max) {
+          return stage;
+        }
+      }
+      return STAGES.FALLING;
+    }
+
+    /**
+     * Get leaf color based on current stage
+     */
+    function getLeafColor() {
+      if (tapCount <= STAGES.FULL_TREE.max) {
+        // Spring/Summer green leaves
+        const greens = ["#228B22", "#32CD32", "#90EE90", "#2E8B57", "#3CB371"];
+        return greens[Math.floor(Math.random() * greens.length)];
+      } else {
+        // Autumn colors
+        const autumnColors = ["#FF6347", "#FF8C00", "#FFD700", "#FF4500", "#DC143C", "#FFA500"];
+        return autumnColors[Math.floor(Math.random() * autumnColors.length)];
+      }
+    }
+
+    /**
+     * Draw the acorn seed
+     */
+    function drawAcorn() {
+      const x = canvas.width / 2;
+      const y = canvas.height - 100;
+      const size = 20 + tapCount * 2;
+
+      // Acorn body
+      ctx.fillStyle = "#8B4513";
+      ctx.beginPath();
+      ctx.ellipse(x, y, size, size * 1.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Acorn cap
+      ctx.fillStyle = "#654321";
+      ctx.beginPath();
+      ctx.ellipse(x, y - size * 0.8, size * 1.1, size * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cap texture
+      ctx.strokeStyle = "#5C4033";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(x - size, y - size * 0.8 + i * 3);
+        ctx.lineTo(x + size, y - size * 0.8 + i * 3);
+        ctx.stroke();
+      }
+    }
+
+    /**
+     * Draw the sprouting seed with emerging root and stem
+     */
+    function drawSprout() {
+      const x = canvas.width / 2;
+      const y = canvas.height - 100;
+      const growthFactor = (tapCount - STAGES.SPROUT.min) / (STAGES.SPROUT.max - STAGES.SPROUT.min);
+
+      // Draw acorn
+      drawAcorn();
+
+      // Draw root going down
+      ctx.strokeStyle = "#8B7355";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 20);
+      ctx.lineTo(x, y + 20 + growthFactor * 30);
+      ctx.stroke();
+
+      // Draw stem going up
+      ctx.strokeStyle = "#32CD32";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 20);
+      ctx.lineTo(x, y - 20 - growthFactor * 50);
+      ctx.stroke();
+
+      // Draw first leaves if far enough in sprout stage
+      if (growthFactor > 0.5) {
+        const leafY = y - 20 - growthFactor * 50;
+        ctx.fillStyle = "#90EE90";
+        
+        // Left leaf
+        ctx.beginPath();
+        ctx.ellipse(x - 15, leafY, 8, 12, -Math.PI / 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Right leaf
+        ctx.beginPath();
+        ctx.ellipse(x + 15, leafY, 8, 12, Math.PI / 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /**
+     * Draw recursive tree branches
+     */
+    function drawBranch(x, y, length, angle, depth, maxDepth) {
+      if (depth > maxDepth) return;
+
+      const endX = x + Math.cos(angle) * length;
+      const endY = y + Math.sin(angle) * length;
+
+      // Branch thickness decreases with depth
+      const thickness = Math.max(1, (maxDepth - depth + 1) * 3);
+      
+      // Branch color - darker at base, lighter at tips
+      const brownValue = Math.floor(139 - depth * 20);
+      ctx.strokeStyle = `rgb(${brownValue}, ${Math.floor(brownValue * 0.5)}, 19)`;
+      ctx.lineWidth = thickness;
+      ctx.lineCap = "round";
+
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+
+      // Add leaves at branch tips
+      if (depth >= maxDepth - 1 && tapCount > STAGES.SAPLING.max) {
+        const leafCount = tapCount > STAGES.MATURE_TREE.min ? 3 : 1;
+        for (let i = 0; i < leafCount; i++) {
+          const leafX = endX + (Math.random() - 0.5) * 20;
+          const leafY = endY + (Math.random() - 0.5) * 20;
+          const existingLeaf = leaves.find(l => 
+            Math.abs(l.x - leafX) < 10 && Math.abs(l.y - leafY) < 10
+          );
+          
+          if (!existingLeaf) {
+            leaves.push(new Leaf(leafX, leafY, 6 + Math.random() * 4, getLeafColor(), angle));
+          }
+        }
+      }
+
+      // Recursively draw child branches
+      if (depth < maxDepth) {
+        const angleVariation = Math.PI / 6 + (Math.random() - 0.5) * 0.3;
+        const lengthReduction = 0.7 + Math.random() * 0.1;
+        
+        drawBranch(endX, endY, length * lengthReduction, angle - angleVariation, depth + 1, maxDepth);
+        drawBranch(endX, endY, length * lengthReduction, angle + angleVariation, depth + 1, maxDepth);
+      }
+    }
+
+    /**
+     * Draw the growing tree with trunk and branches
+     */
+    function drawTree() {
+      const x = canvas.width / 2;
+      const baseY = canvas.height - 50;
+      
+      // Calculate tree parameters based on growth stage
+      let trunkHeight = 0;
+      let branchDepth = 0;
+      let branchLength = 0;
+
+      if (tapCount <= STAGES.SAPLING.max) {
+        // Sapling stage
+        const progress = (tapCount - STAGES.SAPLING.min) / (STAGES.SAPLING.max - STAGES.SAPLING.min);
+        trunkHeight = 80 + progress * 70;
+        branchDepth = Math.floor(progress * 3);
+        branchLength = 40 + progress * 30;
+      } else if (tapCount <= STAGES.SMALL_TREE.max) {
+        // Small tree stage
+        const progress = (tapCount - STAGES.SMALL_TREE.min) / (STAGES.SMALL_TREE.max - STAGES.SMALL_TREE.min);
+        trunkHeight = 150 + progress * 80;
+        branchDepth = 3 + Math.floor(progress * 2);
+        branchLength = 70 + progress * 40;
+      } else {
+        // Mature and full tree stages
+        const progress = Math.min(1, (tapCount - STAGES.MATURE_TREE.min) / (STAGES.FULL_TREE.max - STAGES.MATURE_TREE.min));
+        trunkHeight = 230 + progress * 70;
+        branchDepth = 5 + Math.floor(progress * 2);
+        branchLength = 110 + progress * 40;
+      }
+
+      // Draw trunk
+      const trunkWidth = 30 + branchDepth * 5;
+      ctx.fillStyle = "#654321";
+      ctx.fillRect(x - trunkWidth / 2, baseY - trunkHeight, trunkWidth, trunkHeight);
+
+      // Add trunk texture
+      ctx.strokeStyle = "#5C4033";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const texY = baseY - trunkHeight * (i / 8);
+        ctx.beginPath();
+        ctx.moveTo(x - trunkWidth / 2, texY);
+        ctx.lineTo(x + trunkWidth / 2, texY);
+        ctx.stroke();
+      }
+
+      // Draw branches
+      const branchStartY = baseY - trunkHeight;
+      drawBranch(x, branchStartY, branchLength, -Math.PI / 2, 0, branchDepth);
+    }
+
+    /**
+     * Draw all leaves on the tree
+     */
+    function drawLeaves() {
+      // Limit total leaves to prevent performance issues
+      if (leaves.length > 500) {
+        leaves = leaves.slice(-500);
+      }
+
+      leaves.forEach(leaf => leaf.draw());
+    }
+
+    /**
+     * Update and draw falling leaves animation
+     */
+    function updateFallingLeaves() {
+      // Move some attached leaves to falling leaves
+      if (tapCount > STAGES.FALLING.min && leaves.length > 0 && Math.random() < 0.1) {
+        const leafToFall = leaves.pop();
+        if (leafToFall) {
+          fallingLeaves.push(leafToFall);
+        }
+      }
+
+      // Update and draw falling leaves
+      fallingLeaves = fallingLeaves.filter(leaf => {
+        const stillFalling = leaf.fall();
+        leaf.draw();
+        return stillFalling;
+      });
+    }
+
+    /**
+     * Main render function - draws the complete scene
+     */
+    function render() {
+      // Clear canvas with sky gradient
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, "#87CEEB");
+      gradient.addColorStop(0.5, "#E0F6FF");
+      gradient.addColorStop(1, "#90EE90");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw ground
+      ctx.fillStyle = "#8B7355";
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+      
+      // Add grass
+      ctx.fillStyle = "#228B22";
+      for (let i = 0; i < canvas.width; i += 10) {
+        const grassHeight = Math.random() * 20 + 10;
+        ctx.fillRect(i, canvas.height - 50 - grassHeight, 3, grassHeight);
+      }
+
+      // Draw current growth stage
+      const stage = getCurrentStage();
+      
+      if (tapCount <= STAGES.ACORN.max) {
+        drawAcorn();
+      } else if (tapCount <= STAGES.SPROUT.max) {
+        drawSprout();
+      } else {
+        drawTree();
+        drawLeaves();
+      }
+
+      // Handle falling leaves in autumn
+      if (tapCount >= STAGES.FALLING.min) {
+        updateFallingLeaves();
+      }
+
+      // Update stage display
+      stageDisplay.textContent = `Stage: ${stage.name} (Tap ${tapCount})`;
+    }
+
+    /**
+     * Handle user interaction (tap/click)
+     */
+    function handleTap(e) {
+      e.preventDefault();
+      tapCount++;
+
+      // Add extra leaves during full tree stage
+      if (tapCount > STAGES.MATURE_TREE.min && tapCount <= STAGES.FULL_TREE.max) {
+        // Add random leaves across the tree canopy
+        const x = canvas.width / 2 + (Math.random() - 0.5) * 200;
+        const y = canvas.height - 200 + (Math.random() - 0.5) * 150;
+        leaves.push(new Leaf(x, y, 6 + Math.random() * 4, getLeafColor()));
+      }
+
+      // Update autumn colors
+      if (tapCount > STAGES.AUTUMN.min && tapCount <= STAGES.AUTUMN.max) {
+        // Gradually change existing green leaves to autumn colors
+        leaves.forEach(leaf => {
+          if (leaf.color.includes("8B22") || leaf.color.includes("CD32") || 
+              leaf.color.includes("EE90") || leaf.color.includes("B371")) {
+            if (Math.random() < 0.3) {
+              leaf.color = getLeafColor();
+            }
+          }
+        });
+      }
+
+      render();
+    }
+
+    /**
+     * Handle window resize
+     */
+    function handleResize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      render();
+    }
+
+    // Event listeners
+    canvas.addEventListener("click", handleTap);
+    canvas.addEventListener("touchstart", handleTap);
+    window.addEventListener("resize", handleResize);
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
